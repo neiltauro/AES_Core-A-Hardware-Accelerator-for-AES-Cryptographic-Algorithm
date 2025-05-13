@@ -47,6 +47,8 @@ This project aims to:
 │   └── aes.prof                 # cProfile results for SnakeViz
 ├── README.md                    # Project documentation
 
+---
+
 ## 🔬 Profiling Summary
 
 Profiling was done using `cProfile`, `line_profiler`, and visualized with `SnakeViz`. Key findings:
