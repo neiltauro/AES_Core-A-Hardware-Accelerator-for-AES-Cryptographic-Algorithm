@@ -46,6 +46,7 @@ This project aims to:
 ├── profiling/                   # Profiling outputs
 │   └── aes.prof                 # cProfile results for SnakeViz
 ├── README.md                    # Project documentation
+```
 
 ---
 
@@ -77,6 +78,9 @@ Install profiling tools via pip:
 
 ```bash
 pip install snakeviz line_profiler
+```
+
+---
 
 ## 💡 HDL Acceleration Targets
 
@@ -96,11 +100,12 @@ Performs the **MixColumns** transformation on a single 4-byte column of the AES 
 #### 🧠 Logic Overview:
 Implements the matrix multiplication:
 
+```
 | 2 3 1 1 |   | s0 |
 | 1 2 3 1 | * | s1 |
 | 1 1 2 3 |   | s2 |
 | 3 1 1 2 |   | s3 |
-
+```
 
 Over the Galois Field (GF 2⁸), using `xtime()` for field multiplication by 2 and combinations of XOR operations. This transformation contributes significantly to the security and diffusion of AES, and is computation-heavy in software.
 
@@ -121,7 +126,11 @@ Applies a **bitwise XOR** between the current AES state and the round key — a 
 #### 🧠 Logic Overview:
 Each byte of the AES state is XOR’d with the corresponding byte from the round key:
 
+```
 state_out[i] = state_in[i] ^ round_key[i]
+```
+
+---
 
 ## 🔗 Source Acknowledgment
 
@@ -136,4 +145,3 @@ This code was used as the **software baseline** for:
 - Functional verification  
 - Performance profiling  
 - Identifying compute bottlenecks for hardware acceleration
-
