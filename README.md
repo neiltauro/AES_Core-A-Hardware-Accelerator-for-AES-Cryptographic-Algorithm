@@ -34,57 +34,104 @@ This project aims to:
 
 ## 📂 Repository Structure
 
-├── aes/ # Python implementation
-│ ├── aes.py # Pure Python AES-128 logic
-│ ├── tests.py # Unit tests
-│ ├── profile_aes.py # cProfile + SnakeViz
-│ └── line_profiler_aes.py # kernprof-based line profiler
-├── sv/ # Synthesizable SystemVerilog modules
-│ ├── mix_single_column.sv # GF(2^8) MixColumns logic
-│ └── add_round_key.sv # 128-bit bitwise XOR logic
-├── profiling/
-│ └── aes.prof # cProfile results for SnakeViz
-├── README.md
-
-
----
+```text
+├── aes/                         # Python implementation
+│   ├── aes.py                   # Pure Python AES-128 logic
+│   ├── tests.py                 # Unit tests
+│   ├── profile_aes.py           # cProfile + SnakeViz
+│   └── line_profiler_aes.py     # kernprof-based line profiler
+├── sv/                          # Synthesizable SystemVerilog modules
+│   ├── mix_single_column.sv     # GF(2^8) MixColumns logic
+│   └── add_round_key.sv         # 128-bit bitwise XOR logic
+├── profiling/                   # Profiling outputs
+│   └── aes.prof                 # cProfile results for SnakeViz
+├── README.md                    # Project documentation
 
 ## 🔬 Profiling Summary
 
-Using `cProfile` and `SnakeViz`, we observed the following:
+Profiling was done using `cProfile`, `line_profiler`, and visualized with `SnakeViz`. Key findings:
 
-- 🔺 `mix_single_column()` → **dominates execution time** (687 ms out of 1.4 s)
-- 🔺 `add_round_key()` → frequent XOR operation; easy to parallelize in hardware
-- 📌 `encrypt_block()` → top-level target function composed of smaller AES steps
-
-These observations guided the decision to accelerate these two subroutines in SystemVerilog.
+- 🔺 **`mix_single_column()`** – Most time-consuming operation within `encrypt_block()`
+  - Handles Galois Field matrix multiplication over 4 bytes
+  - ~50% of total block encryption time
+- 🔺 **`add_round_key()`** – Repeated XOR operations over 128-bit blocks
+  - Lightweight but frequently executed
+- ✅ These functions were chosen for hardware acceleration due to their deterministic, bit-parallel behavior and suitability for FPGA/ASIC design.
 
 ---
 
 ## ⚙️ Tools Used
 
-- [Python 3.8+](https://www.python.org/)
-- [SnakeViz](https://jiffyclub.github.io/snakeviz/) for flame graph visualization
-- [line_profiler](https://github.com/pyutils/line_profiler) for precise function timing
-- [SystemVerilog (synthesizable)](https://ieeexplore.ieee.org/document/5764786) for RTL implementation
+| Tool            | Purpose                             |
+|-----------------|-------------------------------------|
+| **Python 3.8+** | Running AES implementation & profiling |
+| `cProfile`      | Function-level performance profiling |
+| `line_profiler` | Line-by-line execution timing        |
+| `SnakeViz`      | Flame graph + visual call analysis   |
+| **SystemVerilog** | RTL design for hardware acceleration |
+| `Icarus Verilog` / `ModelSim` | (Optional) HDL simulation |
 
-To install profiling tools:
+Install profiling tools via pip:
 
 ```bash
 pip install snakeviz line_profiler
 
-⚙️ HDL Acceleration Targets
-mix_single_column.sv: Accepts 32-bit AES column, performs GF(2⁸) matrix multiplication
+## 💡 HDL Acceleration Targets
 
-add_round_key.sv: 128-bit XOR between state and round key
+Based on profiling insights, the following AES subroutines were selected for hardware acceleration using synthesizable SystemVerilog:
 
-These modules are synthesizable and ready for FPGA deployment or testbench simulation.
+---
 
-🚀 Future Work
-🔁 Add full AES pipeline in RTL
+### 🔷 1. `mix_single_column.sv`
 
-🧪 Integrate with cocotb for verification
+#### 📌 Role:
+Performs the **MixColumns** transformation on a single 4-byte column of the AES state matrix using **Galois Field (GF 2⁸) matrix multiplication**.
 
-⛓️ Implement CBC mode or streaming AES
+#### ⚙️ Inputs & Outputs:
+- **Input**: 32-bit column (4 bytes: `{s0, s1, s2, s3}`)
+- **Output**: 32-bit transformed column
 
-🚀 Synthesize and benchmark on FPGA
+#### 🧠 Logic Overview:
+Implements the matrix multiplication:
+
+| 2 3 1 1 |   | s0 |
+| 1 2 3 1 | * | s1 |
+| 1 1 2 3 |   | s2 |
+| 3 1 1 2 |   | s3 |
+
+
+Over the Galois Field (GF 2⁸), using `xtime()` for field multiplication by 2 and combinations of XOR operations. This transformation contributes significantly to the security and diffusion of AES, and is computation-heavy in software.
+
+---
+
+### 🔷 2. `add_round_key.sv`
+
+#### 📌 Role:
+Applies a **bitwise XOR** between the current AES state and the round key — a core step repeated in every AES round.
+
+#### ⚙️ Inputs & Outputs:
+- **Input**: 
+  - `state_in` (128-bit AES state)
+  - `round_key` (128-bit key for that round)
+- **Output**: 
+  - `state_out` (128-bit XOR result)
+
+#### 🧠 Logic Overview:
+Each byte of the AES state is XOR’d with the corresponding byte from the round key:
+
+state_out[i] = state_in[i] ^ round_key[i]
+
+## 🔗 Source Acknowledgment
+
+This project builds upon the educational open-source AES implementation from:
+
+- **Repository**: [boppreh/aes](https://github.com/boppreh/aes)  
+- **Author**: Boaz Yaniv
+
+> *"A minimal implementation of the AES encryption algorithm in pure Python."*
+
+This code was used as the **software baseline** for:
+- Functional verification  
+- Performance profiling  
+- Identifying compute bottlenecks for hardware acceleration
+
