@@ -1,3 +1,38 @@
+# Python bytecode and editor stuff
 *.swp
 *.pyc
 __pycache__/
+
+# Simulation output & temp files
+*.vcd
+*.log
+*.out
+*.fst
+*.wlf
+
+# cocotb build directories
+sim_build/
+results.xml
+coverage.xml
+
+# Test input/output files
+sim/hw_aes_input.txt
+sim/hw_aes_output.txt
+
+# If you keep VCD/trace files in sim/
+sim/*.vcd
+sim/*.log
+
+# Icarus Verilog and Modelsim stuff
+ivl_vhdl_work/
+work/
+transcript
+
+# Miscellaneous
+*.bak
+.DS_Store
+
+# Ignore virtual environment
+venv/
+
+

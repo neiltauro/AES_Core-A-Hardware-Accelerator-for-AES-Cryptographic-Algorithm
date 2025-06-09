@@ -6,7 +6,7 @@ text = b"TextMustBe16Byte"        # 16 bytes → AES block size
 
 def run_encryption():
     cipher = aes.AES(key)
-    for _ in range(100000):
+    for _ in range(150000):
         cipher.encrypt_block(text)   # ✅ fixed method name
 
 if __name__ == "__main__":
