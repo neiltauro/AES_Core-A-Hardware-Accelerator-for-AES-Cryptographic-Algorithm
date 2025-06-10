@@ -1,0 +1,5 @@
+`verilator_config
+lint_off -rule DECLFILENAME
+lint_off -rule EOFNEWLINE
+lint_off -rule UNDRIVEN -file "/mnt/c/Users/neilt/Documents/PSU/HW_For_AI/FinalProject/TinyAES-HW/TinyAES-HW-A-Hardware-Accelerator-for-AES-Column-Transformation/openlane_v1/runs/RUN_2025-06-10_02-59-27/tmp/b846964581834730b650706742a0cc09.bb.v"
+lint_off -rule UNUSEDSIGNAL -file "/mnt/c/Users/neilt/Documents/PSU/HW_For_AI/FinalProject/TinyAES-HW/TinyAES-HW-A-Hardware-Accelerator-for-AES-Column-Transformation/openlane_v1/runs/RUN_2025-06-10_02-59-27/tmp/b846964581834730b650706742a0cc09.bb.v"

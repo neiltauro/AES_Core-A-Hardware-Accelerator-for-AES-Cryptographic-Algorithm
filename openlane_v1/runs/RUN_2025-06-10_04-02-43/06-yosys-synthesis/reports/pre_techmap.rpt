@@ -1,0 +1,44 @@
+129. Printing statistics.
+
+=== aes_core ===
+
+   Number of wires:              20530
+   Number of wire bits:          24135
+   Number of public wires:          89
+   Number of public wire bits:    3694
+   Number of ports:                 11
+   Number of port bits:            520
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:              23734
+     $_ANDNOT_                    6449
+     $_AND_                        210
+     $_DFFE_PN0P_                 2458
+     $_DFFE_PN1P_                    3
+     $_DFF_PN0_                     11
+     $_DFF_PN1_                      4
+     $_MUX_                       1239
+     $_NAND_                       212
+     $_NOR_                        313
+     $_NOT_                        524
+     $_ORNOT_                      389
+     $_OR_                        9053
+     $_XNOR_                       778
+     $_XOR_                       2091
+
+   Area for cell type $_NOT_ is unknown!
+   Area for cell type $_AND_ is unknown!
+   Area for cell type $_NAND_ is unknown!
+   Area for cell type $_OR_ is unknown!
+   Area for cell type $_NOR_ is unknown!
+   Area for cell type $_XOR_ is unknown!
+   Area for cell type $_XNOR_ is unknown!
+   Area for cell type $_ANDNOT_ is unknown!
+   Area for cell type $_ORNOT_ is unknown!
+   Area for cell type $_MUX_ is unknown!
+   Area for cell type $_DFF_PN0_ is unknown!
+   Area for cell type $_DFF_PN1_ is unknown!
+   Area for cell type $_DFFE_PN0P_ is unknown!
+   Area for cell type $_DFFE_PN1P_ is unknown!
+

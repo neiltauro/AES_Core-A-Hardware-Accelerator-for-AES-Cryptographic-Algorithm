@@ -1,0 +1,31 @@
+{
+    "nl": "/mnt/c/Users/neilt/Documents/PSU/HW_For_AI/FinalProject/TinyAES-HW/TinyAES-HW-A-Hardware-Accelerator-for-AES-Column-Transformation/openlane_v1/runs/RUN_2025-06-10_04-02-43/06-yosys-synthesis/aes_core.nl.v",
+    "pnl": null,
+    "pnl-sdf-friendly": null,
+    "pnl-npc": null,
+    "def": null,
+    "lef": null,
+    "openroad-lef": null,
+    "odb": null,
+    "sdc": null,
+    "sdf": null,
+    "spef": null,
+    "lib": null,
+    "spice": null,
+    "mag": null,
+    "gds": null,
+    "mag_gds": null,
+    "klayout_gds": null,
+    "json_h": "/mnt/c/Users/neilt/Documents/PSU/HW_For_AI/FinalProject/TinyAES-HW/TinyAES-HW-A-Hardware-Accelerator-for-AES-Column-Transformation/openlane_v1/runs/RUN_2025-06-10_04-02-43/05-yosys-jsonheader/aes_core.h.json",
+    "vh": null,
+    "metrics": {
+        "design__lint_error__count": 0,
+        "design__lint_timing_construct__count": 0,
+        "design__lint_warning__count": 3,
+        "design__inferred_latch__count": 0,
+        "design__instance__count": 14625,
+        "design__instance__area": 192115.504,
+        "design__instance_unmapped__count": 0,
+        "synthesis__check_error__count": 0
+    }
+}
