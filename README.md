@@ -1,147 +1,55 @@
-# 🔐 TinyAES-HW: Hardware Acceleration of AES MixColumns and AddRoundKey
+# AES_Core: Hardware Accelerator for AES Encryption and Decryption
 
-[![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
-[![SystemVerilog](https://img.shields.io/badge/SystemVerilog-Synthesizable-green)]()
-[![SnakeViz](https://img.shields.io/badge/Profiling-SnakeViz-yellow)](https://jiffyclub.github.io/snakeviz/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+## Overview
 
----
+**AES_Core** is a hardware accelerator project designed to speed up the enciphering and deciphering operations of the AES (Advanced Encryption Standard) encryption algorithm. The core motivation behind this project is to offload the computationally intensive parts of AES—specifically the block encryption and decryption functions—from a general-purpose CPU to custom digital hardware for significantly improved performance.
 
-## 📘 Overview
+## Motivation and Approach
 
-This project accelerates the bottleneck operations of the AES-128 encryption algorithm using custom-designed hardware. By profiling a Python implementation of AES, we identified two computationally expensive functions — `MixColumns` and `AddRoundKey` — and implemented them in **synthesizable SystemVerilog** for efficient execution on hardware like FPGAs.
+- **Profiling**: Using the [secworks/aes](https://github.com/secworks/aes.git) GitHub repository, I analyzed the Python implementation of AES. Profiling with Snakeviz revealed that the `aes_encipher_block()` function alone took **4.61 seconds** for 1,000 runs (see `profilingss.jpeg` for reference).
+- **Initial Attempt**: The first design attempt targeted acceleration of the `mixcolumns()` function (inside `aes_encipher_block()`). However, profiling showed this approach did not yield significant performance improvements.
+- **Final Design Choice**: The project shifted to accelerating both `aes_encipher_block()` and `aes_decipher_block()` functions, leading to the design of a unified hardware core—**aes_core**—that integrates both encryption and decryption capabilities.
 
----
+## Implementation Steps
 
-## 🔎 Motivation
+### 1. **Design and Simulation**
+- Functional modules were adapted from the [secworks/aes](https://github.com/secworks/aes.git) repository.
+- The `aes_core` hardware design was simulated using Modelsim to verify correctness.
 
-AES (Advanced Encryption Standard) is a cornerstone of modern cryptography, used in secure data transmission (TLS, VPNs), wireless encryption (WPA2/WPA3), and embedded systems. The algorithm is computation-heavy and benefits greatly from hardware acceleration — particularly in Galois field operations and bitwise XORs.
+### 2. **Hardware/Software Co-Simulation with Cocotb**
+- Modified the original Python AES implementation (`aes.py`) to enable hardware offloading:
+  - Introduced a mode switch:  
+    ```python
+    def aes_encipher_block(self, key, block):
+        if self.mode == "hardware":
+            # Hardware acceleration: call Verilog module via wrapper
+            return aes_encrypt_block_hw(key, block)
+        else:
+            # Original Python implementation
+    ```
+  - Similar changes were made for decryption.
+  - This modified version was saved as `aes_hw.py`.
+- Wrote a hardware/software wrapper (`aes_wrapper.py`), a cocotb testbench (`test_aes_hw.py`), and a Makefile (all generated via ChatGPT).
+- Successfully ran cocotb simulations with the hardware core, verifying HW/SW co-simulation.
 
-This project aims to:
-- 📈 Identify time-consuming AES sub-functions through profiling
-- 🛠 Implement those functions in synthesizable HDL
-- 🔄 Explore co-design strategies between Python and RTL logic
+### 3. **Synthesis and Physical Design with OpenLane**
+- Synthesized the `aes_core` module using [OpenLane](https://github.com/The-OpenROAD-Project/OpenLane) (an open-source RTL-to-GDS toolchain).
+- All 78 stages completed successfully, producing a final `aes_core.gds` layout.
+- Final timing analysis showed a critical path delay of **14.7 nanoseconds**.
 
----
+## Results
 
-## 🧩 Architecture
+- **Acceleration**: Offloading `aes_encipher_block()` and `aes_decipher_block()` to hardware provided substantial performance gains compared to the pure software approach.
+- **Silicon-Proven Flow**: The project went through the complete digital implementation flow—RTL design, simulation, hardware/software co-simulation, synthesis, and GDSII generation.
 
-> 🔧 The following diagram illustrates the integration of software and hardware components in the AES pipeline:
+## Project Structure
 
-![AES Hardware Acceleration Diagram](./A_diagram_illustrates_a_hardware-accelerated_AES_(.png)
-
----
-
-## 📂 Repository Structure
-
-```text
-├── aes/                         # Python implementation
-│   ├── aes.py                   # Pure Python AES-128 logic
-│   ├── tests.py                 # Unit tests
-│   ├── profile_aes.py           # cProfile + SnakeViz
-│   └── line_profiler_aes.py     # kernprof-based line profiler
-├── sv/                          # Synthesizable SystemVerilog modules
-│   ├── mix_single_column.sv     # GF(2^8) MixColumns logic
-│   └── add_round_key.sv         # 128-bit bitwise XOR logic
-├── profiling/                   # Profiling outputs
-│   └── aes.prof                 # cProfile results for SnakeViz
-├── README.md                    # Project documentation
-```
-
----
-
-## 🔬 Profiling Summary
-
-Profiling was done using `cProfile`, `line_profiler`, and visualized with `SnakeViz`. Key findings:
-
-- 🔺 **`mix_single_column()`** – Most time-consuming operation within `encrypt_block()`
-  - Handles Galois Field matrix multiplication over 4 bytes
-  - ~50% of total block encryption time
-- 🔺 **`add_round_key()`** – Repeated XOR operations over 128-bit blocks
-  - Lightweight but frequently executed
-- ✅ These functions were chosen for hardware acceleration due to their deterministic, bit-parallel behavior and suitability for FPGA/ASIC design.
-
----
-
-## ⚙️ Tools Used
-
-| Tool            | Purpose                             |
-|-----------------|-------------------------------------|
-| **Python 3.8+** | Running AES implementation & profiling |
-| `cProfile`      | Function-level performance profiling |
-| `line_profiler` | Line-by-line execution timing        |
-| `SnakeViz`      | Flame graph + visual call analysis   |
-| **SystemVerilog** | RTL design for hardware acceleration |
-| `Icarus Verilog` / `ModelSim` | (Optional) HDL simulation |
-
-Install profiling tools via pip:
-
-```bash
-pip install snakeviz line_profiler
-```
-
----
-
-## 💡 HDL Acceleration Targets
-
-Based on profiling insights, the following AES subroutines were selected for hardware acceleration using synthesizable SystemVerilog:
-
----
-
-### 🔷 1. `mix_single_column.sv`
-
-#### 📌 Role:
-Performs the **MixColumns** transformation on a single 4-byte column of the AES state matrix using **Galois Field (GF 2⁸) matrix multiplication**.
-
-#### ⚙️ Inputs & Outputs:
-- **Input**: 32-bit column (4 bytes: `{s0, s1, s2, s3}`)
-- **Output**: 32-bit transformed column
-
-#### 🧠 Logic Overview:
-Implements the matrix multiplication:
-
-```
-| 2 3 1 1 |   | s0 |
-| 1 2 3 1 | * | s1 |
-| 1 1 2 3 |   | s2 |
-| 3 1 1 2 |   | s3 |
-```
-
-Over the Galois Field (GF 2⁸), using `xtime()` for field multiplication by 2 and combinations of XOR operations. This transformation contributes significantly to the security and diffusion of AES, and is computation-heavy in software.
-
----
-
-### 🔷 2. `add_round_key.sv`
-
-#### 📌 Role:
-Applies a **bitwise XOR** between the current AES state and the round key — a core step repeated in every AES round.
-
-#### ⚙️ Inputs & Outputs:
-- **Input**: 
-  - `state_in` (128-bit AES state)
-  - `round_key` (128-bit key for that round)
-- **Output**: 
-  - `state_out` (128-bit XOR result)
-
-#### 🧠 Logic Overview:
-Each byte of the AES state is XOR’d with the corresponding byte from the round key:
-
-```
-state_out[i] = state_in[i] ^ round_key[i]
-```
-
----
-
-## 🔗 Source Acknowledgment
-
-This project builds upon the educational open-source AES implementation from:
-
-- **Repository**: [boppreh/aes](https://github.com/boppreh/aes)  
-- **Author**: Boaz Yaniv
-
-> *"A minimal implementation of the AES encryption algorithm in pure Python."*
-
-This code was used as the **software baseline** for:
-- Functional verification  
-- Performance profiling  
-- Identifying compute bottlenecks for hardware acceleration
+flowchart LR
+    A[Python Application] -- Calls --> B[aes_hw.py]
+    B -- mode="hardware"\ncall --> C[aes_wrapper.py]
+    C -- Test/Drive --> D[cocotb Testbench]
+    D -- Drives signals --> E[aes_core (Verilog)]
+    E -- Output --> D
+    D -- Output to --> C
+    C -- Return to --> B
+    B -- Results --> A 
