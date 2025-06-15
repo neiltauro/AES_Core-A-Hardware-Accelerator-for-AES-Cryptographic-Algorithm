@@ -10,6 +10,18 @@
 - **Initial Attempt**: The first design attempt targeted acceleration of the `mixcolumns()` function (inside `aes_encipher_block()`). However, profiling showed this approach did not yield significant performance improvements.
 - **Final Design Choice**: The project shifted to accelerating both `aes_encipher_block()` and `aes_decipher_block()` functions, leading to the design of a unified hardware core—**aes_core**—that integrates both encryption and decryption capabilities.
 
+## Architectural Diagram
+
+![AES Core Architectural Diagram]([./diagram.jpg](https://raw.githubusercontent.com/neiltauro/AES_Core-A-Hardware-Accelerator-for-AES-Cryptographic-Algorithm/main/Photos/Architectural%20Diagram.png)
+
+> The above diagram illustrates the chiplet architecture for **AES_Core**.  
+> The main modules include:
+> - **Encryption Block (aes_encipher_block)**
+> - **Decryption Block (aes_decipher_block)**
+> - **Key Schedule Module (aes_key_mem)**
+> - **SBox Module (aes_sbox)**
+> - **Control Logic (aes_core controller)**
+
 ## Implementation Steps
 
 ### 1. **Design and Simulation**
