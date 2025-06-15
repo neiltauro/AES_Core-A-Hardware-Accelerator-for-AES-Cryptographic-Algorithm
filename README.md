@@ -6,13 +6,13 @@
 
 ## Motivation and Approach
 
-- **Profiling**: Using the [secworks/aes](https://github.com/secworks/aes.git) GitHub repository, I analyzed the Python implementation of AES. Profiling with Snakeviz revealed that the `aes_encipher_block()` function alone took **4.61 seconds** for 1,000 runs (see `profilingss.jpeg` for reference).
+- **Profiling**: Using the [secworks/aes](https://github.com/secworks/aes.git) GitHub repository, I analyzed the Python implementation of AES. Profiling with Snakeviz revealed that the `aes_encipher_block()` function alone took **4.61 milli seconds** for a single runs (see [profilingss.jpeg](https://github.com/neiltauro/AES_Core-A-Hardware-Accelerator-for-AES-Cryptographic-Algorithm/blob/main/profilingss.jpeg) for reference).
 - **Initial Attempt**: The first design attempt targeted acceleration of the `mixcolumns()` function (inside `aes_encipher_block()`). However, profiling showed this approach did not yield significant performance improvements.
 - **Final Design Choice**: The project shifted to accelerating both `aes_encipher_block()` and `aes_decipher_block()` functions, leading to the design of a unified hardware core—**aes_core**—that integrates both encryption and decryption capabilities.
 
 ## Architectural Diagram
 
-![AES Core Architectural Diagram]([./diagram.jpg](https://raw.githubusercontent.com/neiltauro/AES_Core-A-Hardware-Accelerator-for-AES-Cryptographic-Algorithm/main/Photos/Architectural%20Diagram.png)
+![AES Core Architectural Diagram](https://raw.githubusercontent.com/neiltauro/AES_Core-A-Hardware-Accelerator-for-AES-Cryptographic-Algorithm/main/Photos/Architectural%20Diagram.png)
 
 > The above diagram illustrates the chiplet architecture for **AES_Core**.  
 > The main modules include:
