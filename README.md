@@ -25,8 +25,9 @@
 ## Implementation Steps
 
 ### 1. **Design and Simulation**
-- Functional modules were referenced from the [secworks/aes](https://github.com/secworks/aes.git) repository.
-- The `aes_core` hardware design was simulated using Modelsim to verify correctness.
+- Functional modules were referenced and designed from the [secworks/aes](https://github.com/secworks/aes.git) repository.
+- The `aes_core` hardware design was simulated using Modelsim to verify correctness ([sim](https://github.com/neiltauro/AES_Core-A-Hardware-Accelerator-for-AES-Cryptographic-Algorithm/blob/main/ModelsimSS.png)
+.
 
 ### 2. **Hardware/Software Co-Simulation with Cocotb**
 - Modified the original Python AES implementation (`aes.py`) to enable hardware offloading:
@@ -46,7 +47,7 @@
 
 ### 3. **Synthesis and Physical Design with OpenLane**
 - Synthesized the `aes_core` module using [OpenLane](https://github.com/The-OpenROAD-Project/OpenLane) (an open-source RTL-to-GDS toolchain).
-- All 78 stages completed successfully, producing a final `aes_core.gds` layout.
+- All 78 stages completed successfully, producing a final `aes_core.gds` layout ([GDSII Layout](https://github.com/neiltauro/AES_Core-A-Hardware-Accelerator-for-AES-Cryptographic-Algorithm/blob/main/GSDII.png)).
 - Final timing analysis showed a critical path delay of **14.7 nanoseconds**.
 
 ## Results
