@@ -95,41 +95,43 @@ module aes_encipher_block(
     end
   endfunction // gm3
 
-  function automatic [31 : 0] mixw(input [31 : 0] w);
-    reg [7 : 0] b0, b1, b2, b3;
-    reg [7 : 0] mb0, mb1, mb2, mb3;
+    // Helper function declarations for gm2 and gm3 assumed
+
+  function automatic [31:0] mixw(input [31:0] w);
+    // Unpack bytes only once
+    reg [7:0] b [3:0];
+    reg [7:0] mb [3:0];
     begin
-      b0 = w[31 : 24];
-      b1 = w[23 : 16];
-      b2 = w[15 : 08];
-      b3 = w[07 : 00];
+        b[0] = w[31:24];
+        b[1] = w[23:16];
+        b[2] = w[15:8];
+        b[3] = w[7:0];
 
-      mb0 = gm2(b0) ^ gm3(b1) ^ b2      ^ b3;
-      mb1 = b0      ^ gm2(b1) ^ gm3(b2) ^ b3;
-      mb2 = b0      ^ b1      ^ gm2(b2) ^ gm3(b3);
-      mb3 = gm3(b0) ^ b1      ^ b2      ^ gm2(b3);
+        mb[0] = gm2(b[0]) ^ gm3(b[1]) ^ b[2] ^ b[3];
+        mb[1] = b[0] ^ gm2(b[1]) ^ gm3(b[2]) ^ b[3];
+        mb[2] = b[0] ^ b[1] ^ gm2(b[2]) ^ gm3(b[3]);
+        mb[3] = gm3(b[0]) ^ b[1] ^ b[2] ^ gm2(b[3]);
 
-      mixw = {mb0, mb1, mb2, mb3};
+        mixw = {mb[0], mb[1], mb[2], mb[3]};
     end
-  endfunction // mixw
+  endfunction
 
-  function automatic [127 : 0] mixcolumns(input [127 : 0] data);
-    reg [31 : 0] w0, w1, w2, w3;
-    reg [31 : 0] ws0, ws1, ws2, ws3;
+  function automatic [127:0] mixcolumns(input [127:0] data);
+    reg [31:0] w [3:0];
+    reg [31:0] ws [3:0];
+    integer i;
     begin
-      w0 = data[127 : 096];
-      w1 = data[095 : 064];
-      w2 = data[063 : 032];
-      w3 = data[031 : 000];
-
-      ws0 = mixw(w0);
-      ws1 = mixw(w1);
-      ws2 = mixw(w2);
-      ws3 = mixw(w3);
-
-      mixcolumns = {ws0, ws1, ws2, ws3};
+        // Unpack data into 4 words
+        for (i = 0; i < 4; i = i + 1)
+            w[i] = data[127 - 32*i -: 32];
+        // Apply mixw to each word
+        for (i = 0; i < 4; i = i + 1)
+            ws[i] = mixw(w[i]);
+        // Concatenate results
+        mixcolumns = {ws[0], ws[1], ws[2], ws[3]};
     end
-  endfunction // mixcolumns
+  endfunction
+
 
   function automatic [127 : 0] shiftrows(input [127 : 0] data);
     reg [31 : 0] w0, w1, w2, w3;

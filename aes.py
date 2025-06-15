@@ -1,548 +1,959 @@
 #!/usr/bin/env python3
-"""
-This is an exercise in secure symmetric-key encryption, implemented in pure
-Python (no external libraries needed).
+# -*- coding: utf-8 -*-
+#=======================================================================
+#
+# aes.py
+# ------
+# Simple, pure Python, word based model of the AES cipher with
+# support for 128 and 256 bit keys.
+#
+#
+# Author: Joachim Strömbergson
+# Copyright (c) 2014, Secworks Sweden AB
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or
+# without modification, are permitted provided that the following
+# conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in
+#    the documentation and/or other materials provided with the
+#    distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+#=======================================================================
 
-Original AES-128 implementation by Bo Zhu (http://about.bozhu.me) at 
-https://github.com/bozhu/AES-Python . PKCS#7 padding, CBC mode, PKBDF2, HMAC,
-byte array and string support added by me at https://github.com/boppreh/aes. 
-Other block modes contributed by @righthandabacus.
-
-
-Although this is an exercise, the `encrypt` and `decrypt` functions should
-provide reasonable security to encrypted messages.
-"""
-
-
-s_box = (
-    0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
-    0xCA, 0x82, 0xC9, 0x7D, 0xFA, 0x59, 0x47, 0xF0, 0xAD, 0xD4, 0xA2, 0xAF, 0x9C, 0xA4, 0x72, 0xC0,
-    0xB7, 0xFD, 0x93, 0x26, 0x36, 0x3F, 0xF7, 0xCC, 0x34, 0xA5, 0xE5, 0xF1, 0x71, 0xD8, 0x31, 0x15,
-    0x04, 0xC7, 0x23, 0xC3, 0x18, 0x96, 0x05, 0x9A, 0x07, 0x12, 0x80, 0xE2, 0xEB, 0x27, 0xB2, 0x75,
-    0x09, 0x83, 0x2C, 0x1A, 0x1B, 0x6E, 0x5A, 0xA0, 0x52, 0x3B, 0xD6, 0xB3, 0x29, 0xE3, 0x2F, 0x84,
-    0x53, 0xD1, 0x00, 0xED, 0x20, 0xFC, 0xB1, 0x5B, 0x6A, 0xCB, 0xBE, 0x39, 0x4A, 0x4C, 0x58, 0xCF,
-    0xD0, 0xEF, 0xAA, 0xFB, 0x43, 0x4D, 0x33, 0x85, 0x45, 0xF9, 0x02, 0x7F, 0x50, 0x3C, 0x9F, 0xA8,
-    0x51, 0xA3, 0x40, 0x8F, 0x92, 0x9D, 0x38, 0xF5, 0xBC, 0xB6, 0xDA, 0x21, 0x10, 0xFF, 0xF3, 0xD2,
-    0xCD, 0x0C, 0x13, 0xEC, 0x5F, 0x97, 0x44, 0x17, 0xC4, 0xA7, 0x7E, 0x3D, 0x64, 0x5D, 0x19, 0x73,
-    0x60, 0x81, 0x4F, 0xDC, 0x22, 0x2A, 0x90, 0x88, 0x46, 0xEE, 0xB8, 0x14, 0xDE, 0x5E, 0x0B, 0xDB,
-    0xE0, 0x32, 0x3A, 0x0A, 0x49, 0x06, 0x24, 0x5C, 0xC2, 0xD3, 0xAC, 0x62, 0x91, 0x95, 0xE4, 0x79,
-    0xE7, 0xC8, 0x37, 0x6D, 0x8D, 0xD5, 0x4E, 0xA9, 0x6C, 0x56, 0xF4, 0xEA, 0x65, 0x7A, 0xAE, 0x08,
-    0xBA, 0x78, 0x25, 0x2E, 0x1C, 0xA6, 0xB4, 0xC6, 0xE8, 0xDD, 0x74, 0x1F, 0x4B, 0xBD, 0x8B, 0x8A,
-    0x70, 0x3E, 0xB5, 0x66, 0x48, 0x03, 0xF6, 0x0E, 0x61, 0x35, 0x57, 0xB9, 0x86, 0xC1, 0x1D, 0x9E,
-    0xE1, 0xF8, 0x98, 0x11, 0x69, 0xD9, 0x8E, 0x94, 0x9B, 0x1E, 0x87, 0xE9, 0xCE, 0x55, 0x28, 0xDF,
-    0x8C, 0xA1, 0x89, 0x0D, 0xBF, 0xE6, 0x42, 0x68, 0x41, 0x99, 0x2D, 0x0F, 0xB0, 0x54, 0xBB, 0x16,
-)
-
-inv_s_box = (
-    0x52, 0x09, 0x6A, 0xD5, 0x30, 0x36, 0xA5, 0x38, 0xBF, 0x40, 0xA3, 0x9E, 0x81, 0xF3, 0xD7, 0xFB,
-    0x7C, 0xE3, 0x39, 0x82, 0x9B, 0x2F, 0xFF, 0x87, 0x34, 0x8E, 0x43, 0x44, 0xC4, 0xDE, 0xE9, 0xCB,
-    0x54, 0x7B, 0x94, 0x32, 0xA6, 0xC2, 0x23, 0x3D, 0xEE, 0x4C, 0x95, 0x0B, 0x42, 0xFA, 0xC3, 0x4E,
-    0x08, 0x2E, 0xA1, 0x66, 0x28, 0xD9, 0x24, 0xB2, 0x76, 0x5B, 0xA2, 0x49, 0x6D, 0x8B, 0xD1, 0x25,
-    0x72, 0xF8, 0xF6, 0x64, 0x86, 0x68, 0x98, 0x16, 0xD4, 0xA4, 0x5C, 0xCC, 0x5D, 0x65, 0xB6, 0x92,
-    0x6C, 0x70, 0x48, 0x50, 0xFD, 0xED, 0xB9, 0xDA, 0x5E, 0x15, 0x46, 0x57, 0xA7, 0x8D, 0x9D, 0x84,
-    0x90, 0xD8, 0xAB, 0x00, 0x8C, 0xBC, 0xD3, 0x0A, 0xF7, 0xE4, 0x58, 0x05, 0xB8, 0xB3, 0x45, 0x06,
-    0xD0, 0x2C, 0x1E, 0x8F, 0xCA, 0x3F, 0x0F, 0x02, 0xC1, 0xAF, 0xBD, 0x03, 0x01, 0x13, 0x8A, 0x6B,
-    0x3A, 0x91, 0x11, 0x41, 0x4F, 0x67, 0xDC, 0xEA, 0x97, 0xF2, 0xCF, 0xCE, 0xF0, 0xB4, 0xE6, 0x73,
-    0x96, 0xAC, 0x74, 0x22, 0xE7, 0xAD, 0x35, 0x85, 0xE2, 0xF9, 0x37, 0xE8, 0x1C, 0x75, 0xDF, 0x6E,
-    0x47, 0xF1, 0x1A, 0x71, 0x1D, 0x29, 0xC5, 0x89, 0x6F, 0xB7, 0x62, 0x0E, 0xAA, 0x18, 0xBE, 0x1B,
-    0xFC, 0x56, 0x3E, 0x4B, 0xC6, 0xD2, 0x79, 0x20, 0x9A, 0xDB, 0xC0, 0xFE, 0x78, 0xCD, 0x5A, 0xF4,
-    0x1F, 0xDD, 0xA8, 0x33, 0x88, 0x07, 0xC7, 0x31, 0xB1, 0x12, 0x10, 0x59, 0x27, 0x80, 0xEC, 0x5F,
-    0x60, 0x51, 0x7F, 0xA9, 0x19, 0xB5, 0x4A, 0x0D, 0x2D, 0xE5, 0x7A, 0x9F, 0x93, 0xC9, 0x9C, 0xEF,
-    0xA0, 0xE0, 0x3B, 0x4D, 0xAE, 0x2A, 0xF5, 0xB0, 0xC8, 0xEB, 0xBB, 0x3C, 0x83, 0x53, 0x99, 0x61,
-    0x17, 0x2B, 0x04, 0x7E, 0xBA, 0x77, 0xD6, 0x26, 0xE1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0C, 0x7D,
-)
+#-------------------------------------------------------------------
+# Python module imports.
+#-------------------------------------------------------------------
+import sys
 
 
-def sub_bytes(s):
-    for i in range(4):
-        for j in range(4):
-            s[i][j] = s_box[s[i][j]]
+#-------------------------------------------------------------------
+# AES()
+#-------------------------------------------------------------------
+class AES():
+    VERBOSE = True
+    DUMP_VARS = True
+
+    AES_128_ROUNDS = 10
+    AES_256_ROUNDS = 14
 
 
-def inv_sub_bytes(s):
-    for i in range(4):
-        for j in range(4):
-            s[i][j] = inv_s_box[s[i][j]]
+    sbox = [0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5,
+            0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
+            0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0,
+            0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
+            0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc,
+            0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
+            0x04, 0xc7, 0x23, 0xc3, 0x18, 0x96, 0x05, 0x9a,
+            0x07, 0x12, 0x80, 0xe2, 0xeb, 0x27, 0xb2, 0x75,
+            0x09, 0x83, 0x2c, 0x1a, 0x1b, 0x6e, 0x5a, 0xa0,
+            0x52, 0x3b, 0xd6, 0xb3, 0x29, 0xe3, 0x2f, 0x84,
+            0x53, 0xd1, 0x00, 0xed, 0x20, 0xfc, 0xb1, 0x5b,
+            0x6a, 0xcb, 0xbe, 0x39, 0x4a, 0x4c, 0x58, 0xcf,
+            0xd0, 0xef, 0xaa, 0xfb, 0x43, 0x4d, 0x33, 0x85,
+            0x45, 0xf9, 0x02, 0x7f, 0x50, 0x3c, 0x9f, 0xa8,
+            0x51, 0xa3, 0x40, 0x8f, 0x92, 0x9d, 0x38, 0xf5,
+            0xbc, 0xb6, 0xda, 0x21, 0x10, 0xff, 0xf3, 0xd2,
+            0xcd, 0x0c, 0x13, 0xec, 0x5f, 0x97, 0x44, 0x17,
+            0xc4, 0xa7, 0x7e, 0x3d, 0x64, 0x5d, 0x19, 0x73,
+            0x60, 0x81, 0x4f, 0xdc, 0x22, 0x2a, 0x90, 0x88,
+            0x46, 0xee, 0xb8, 0x14, 0xde, 0x5e, 0x0b, 0xdb,
+            0xe0, 0x32, 0x3a, 0x0a, 0x49, 0x06, 0x24, 0x5c,
+            0xc2, 0xd3, 0xac, 0x62, 0x91, 0x95, 0xe4, 0x79,
+            0xe7, 0xc8, 0x37, 0x6d, 0x8d, 0xd5, 0x4e, 0xa9,
+            0x6c, 0x56, 0xf4, 0xea, 0x65, 0x7a, 0xae, 0x08,
+            0xba, 0x78, 0x25, 0x2e, 0x1c, 0xa6, 0xb4, 0xc6,
+            0xe8, 0xdd, 0x74, 0x1f, 0x4b, 0xbd, 0x8b, 0x8a,
+            0x70, 0x3e, 0xb5, 0x66, 0x48, 0x03, 0xf6, 0x0e,
+            0x61, 0x35, 0x57, 0xb9, 0x86, 0xc1, 0x1d, 0x9e,
+            0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94,
+            0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
+            0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68,
+            0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16]
 
 
-def shift_rows(s):
-    s[0][1], s[1][1], s[2][1], s[3][1] = s[1][1], s[2][1], s[3][1], s[0][1]
-    s[0][2], s[1][2], s[2][2], s[3][2] = s[2][2], s[3][2], s[0][2], s[1][2]
-    s[0][3], s[1][3], s[2][3], s[3][3] = s[3][3], s[0][3], s[1][3], s[2][3]
+    inv_sbox = [0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38,
+                0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7, 0xfb,
+                0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87,
+                0x34, 0x8e, 0x43, 0x44, 0xc4, 0xde, 0xe9, 0xcb,
+                0x54, 0x7b, 0x94, 0x32, 0xa6, 0xc2, 0x23, 0x3d,
+                0xee, 0x4c, 0x95, 0x0b, 0x42, 0xfa, 0xc3, 0x4e,
+                0x08, 0x2e, 0xa1, 0x66, 0x28, 0xd9, 0x24, 0xb2,
+                0x76, 0x5b, 0xa2, 0x49, 0x6d, 0x8b, 0xd1, 0x25,
+                0x72, 0xf8, 0xf6, 0x64, 0x86, 0x68, 0x98, 0x16,
+                0xd4, 0xa4, 0x5c, 0xcc, 0x5d, 0x65, 0xb6, 0x92,
+                0x6c, 0x70, 0x48, 0x50, 0xfd, 0xed, 0xb9, 0xda,
+                0x5e, 0x15, 0x46, 0x57, 0xa7, 0x8d, 0x9d, 0x84,
+                0x90, 0xd8, 0xab, 0x00, 0x8c, 0xbc, 0xd3, 0x0a,
+                0xf7, 0xe4, 0x58, 0x05, 0xb8, 0xb3, 0x45, 0x06,
+                0xd0, 0x2c, 0x1e, 0x8f, 0xca, 0x3f, 0x0f, 0x02,
+                0xc1, 0xaf, 0xbd, 0x03, 0x01, 0x13, 0x8a, 0x6b,
+                0x3a, 0x91, 0x11, 0x41, 0x4f, 0x67, 0xdc, 0xea,
+                0x97, 0xf2, 0xcf, 0xce, 0xf0, 0xb4, 0xe6, 0x73,
+                0x96, 0xac, 0x74, 0x22, 0xe7, 0xad, 0x35, 0x85,
+                0xe2, 0xf9, 0x37, 0xe8, 0x1c, 0x75, 0xdf, 0x6e,
+                0x47, 0xf1, 0x1a, 0x71, 0x1d, 0x29, 0xc5, 0x89,
+                0x6f, 0xb7, 0x62, 0x0e, 0xaa, 0x18, 0xbe, 0x1b,
+                0xfc, 0x56, 0x3e, 0x4b, 0xc6, 0xd2, 0x79, 0x20,
+                0x9a, 0xdb, 0xc0, 0xfe, 0x78, 0xcd, 0x5a, 0xf4,
+                0x1f, 0xdd, 0xa8, 0x33, 0x88, 0x07, 0xc7, 0x31,
+                0xb1, 0x12, 0x10, 0x59, 0x27, 0x80, 0xec, 0x5f,
+                0x60, 0x51, 0x7f, 0xa9, 0x19, 0xb5, 0x4a, 0x0d,
+                0x2d, 0xe5, 0x7a, 0x9f, 0x93, 0xc9, 0x9c, 0xef,
+                0xa0, 0xe0, 0x3b, 0x4d, 0xae, 0x2a, 0xf5, 0xb0,
+                0xc8, 0xeb, 0xbb, 0x3c, 0x83, 0x53, 0x99, 0x61,
+                0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26,
+                0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d]
 
 
-def inv_shift_rows(s):
-    s[0][1], s[1][1], s[2][1], s[3][1] = s[3][1], s[0][1], s[1][1], s[2][1]
-    s[0][2], s[1][2], s[2][2], s[3][2] = s[2][2], s[3][2], s[0][2], s[1][2]
-    s[0][3], s[1][3], s[2][3], s[3][3] = s[1][3], s[2][3], s[3][3], s[0][3]
-
-def add_round_key(s, k):
-    for i in range(4):
-        for j in range(4):
-            s[i][j] ^= k[i][j]
+    #-------------------------------------------------------------------
+    #-------------------------------------------------------------------
+    def __init__(self, verbose = True, dump_vars = True):
+        self.VERBOSE = verbose
+        self.DUMP_VARS = dump_vars
 
 
-# learned from https://web.archive.org/web/20100626212235/http://cs.ucsb.edu/~koc/cs178/projects/JT/aes.c
-xtime = lambda a: (((a << 1) ^ 0x1B) & 0xFF) if (a & 0x80) else (a << 1)
+    #-------------------------------------------------------------------
+    # check_block()
+    #
+    # Check and report if a result block matches expected block.
+    #-------------------------------------------------------------------
+    def check_block(self, expected, result):
+        if (expected[0] == result[0]) and  (expected[1] == result[1]) and\
+          (expected[2] == result[2]) and  (expected[3] == result[3]):
+            print("OK. Result matches expected.")
+            print("")
+            return 0
 
-
-def mix_single_column(a):
-    # see Sec 4.1.2 in The Design of Rijndael
-    t = a[0] ^ a[1] ^ a[2] ^ a[3]
-    u = a[0]
-    a[0] ^= t ^ xtime(a[0] ^ a[1])
-    a[1] ^= t ^ xtime(a[1] ^ a[2])
-    a[2] ^= t ^ xtime(a[2] ^ a[3])
-    a[3] ^= t ^ xtime(a[3] ^ u)
-
-
-def mix_columns(s):
-    for i in range(4):
-        mix_single_column(s[i])
-
-
-def inv_mix_columns(s):
-    # see Sec 4.1.3 in The Design of Rijndael
-    for i in range(4):
-        u = xtime(xtime(s[i][0] ^ s[i][2]))
-        v = xtime(xtime(s[i][1] ^ s[i][3]))
-        s[i][0] ^= u
-        s[i][1] ^= v
-        s[i][2] ^= u
-        s[i][3] ^= v
-
-    mix_columns(s)
-
-
-r_con = (
-    0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40,
-    0x80, 0x1B, 0x36, 0x6C, 0xD8, 0xAB, 0x4D, 0x9A,
-    0x2F, 0x5E, 0xBC, 0x63, 0xC6, 0x97, 0x35, 0x6A,
-    0xD4, 0xB3, 0x7D, 0xFA, 0xEF, 0xC5, 0x91, 0x39,
-)
-
-
-def bytes2matrix(text):
-    """ Converts a 16-byte array into a 4x4 matrix.  """
-    return [list(text[i:i+4]) for i in range(0, len(text), 4)]
-
-def matrix2bytes(matrix):
-    """ Converts a 4x4 matrix into a 16-byte array.  """
-    return bytes(sum(matrix, []))
-
-def xor_bytes(a, b):
-    """ Returns a new byte array with the elements xor'ed. """
-    return bytes(i^j for i, j in zip(a, b))
-
-def inc_bytes(a):
-    """ Returns a new byte array with the value increment by 1 """
-    out = list(a)
-    for i in reversed(range(len(out))):
-        if out[i] == 0xFF:
-            out[i] = 0
         else:
-            out[i] += 1
-            break
-    return bytes(out)
-
-def pad(plaintext):
-    """
-    Pads the given plaintext with PKCS#7 padding to a multiple of 16 bytes.
-    Note that if the plaintext size is a multiple of 16,
-    a whole block will be added.
-    """
-    padding_len = 16 - (len(plaintext) % 16)
-    padding = bytes([padding_len] * padding_len)
-    return plaintext + padding
-
-def unpad(plaintext):
-    """
-    Removes a PKCS#7 padding, returning the unpadded text and ensuring the
-    padding was correct.
-    """
-    padding_len = plaintext[-1]
-    assert padding_len > 0
-    message, padding = plaintext[:-padding_len], plaintext[-padding_len:]
-    assert all(p == padding_len for p in padding)
-    return message
-
-def split_blocks(message, block_size=16, require_padding=True):
-        assert len(message) % block_size == 0 or not require_padding
-        return [message[i:i+16] for i in range(0, len(message), block_size)]
-
-
-class AES:
-    """
-    Class for AES-128 encryption with CBC mode and PKCS#7.
-
-    This is a raw implementation of AES, without key stretching or IV
-    management. Unless you need that, please use `encrypt` and `decrypt`.
-    """
-    rounds_by_key_size = {16: 10, 24: 12, 32: 14}
-    def __init__(self, master_key):
-        """
-        Initializes the object with a given key.
-        """
-        assert len(master_key) in AES.rounds_by_key_size
-        self.n_rounds = AES.rounds_by_key_size[len(master_key)]
-        self._key_matrices = self._expand_key(master_key)
-
-    def _expand_key(self, master_key):
-        """
-        Expands and returns a list of key matrices for the given master_key.
-        """
-        # Initialize round keys with raw key material.
-        key_columns = bytes2matrix(master_key)
-        iteration_size = len(master_key) // 4
-
-        i = 1
-        while len(key_columns) < (self.n_rounds + 1) * 4:
-            # Copy previous word.
-            word = list(key_columns[-1])
-
-            # Perform schedule_core once every "row".
-            if len(key_columns) % iteration_size == 0:
-                # Circular shift.
-                word.append(word.pop(0))
-                # Map to S-BOX.
-                word = [s_box[b] for b in word]
-                # XOR with first byte of R-CON, since the others bytes of R-CON are 0.
-                word[0] ^= r_con[i]
-                i += 1
-            elif len(master_key) == 32 and len(key_columns) % iteration_size == 4:
-                # Run word through S-box in the fourth iteration when using a
-                # 256-bit key.
-                word = [s_box[b] for b in word]
-
-            # XOR with equivalent word from previous iteration.
-            word = xor_bytes(word, key_columns[-iteration_size])
-            key_columns.append(word)
-
-        # Group key words in 4x4 byte matrices.
-        return [key_columns[4*i : 4*(i+1)] for i in range(len(key_columns) // 4)]
-
-    def encrypt_block(self, plaintext):
-        """
-        Encrypts a single block of 16 byte long plaintext.
-        """
-        assert len(plaintext) == 16
-
-        plain_state = bytes2matrix(plaintext)
-
-        add_round_key(plain_state, self._key_matrices[0])
-
-        for i in range(1, self.n_rounds):
-            sub_bytes(plain_state)
-            shift_rows(plain_state)
-            mix_columns(plain_state)
-            add_round_key(plain_state, self._key_matrices[i])
-
-        sub_bytes(plain_state)
-        shift_rows(plain_state)
-        add_round_key(plain_state, self._key_matrices[-1])
-
-        return matrix2bytes(plain_state)
-
-    def decrypt_block(self, ciphertext):
-        """
-        Decrypts a single block of 16 byte long ciphertext.
-        """
-        assert len(ciphertext) == 16
-
-        cipher_state = bytes2matrix(ciphertext)
-
-        add_round_key(cipher_state, self._key_matrices[-1])
-        inv_shift_rows(cipher_state)
-        inv_sub_bytes(cipher_state)
-
-        for i in range(self.n_rounds - 1, 0, -1):
-            add_round_key(cipher_state, self._key_matrices[i])
-            inv_mix_columns(cipher_state)
-            inv_shift_rows(cipher_state)
-            inv_sub_bytes(cipher_state)
-
-        add_round_key(cipher_state, self._key_matrices[0])
-
-        return matrix2bytes(cipher_state)
-
-    def encrypt_cbc(self, plaintext, iv):
-        """
-        Encrypts `plaintext` using CBC mode and PKCS#7 padding, with the given
-        initialization vector (iv).
-        """
-        assert len(iv) == 16
-
-        plaintext = pad(plaintext)
-
-        blocks = []
-        previous = iv
-        for plaintext_block in split_blocks(plaintext):
-            # CBC mode encrypt: encrypt(plaintext_block XOR previous)
-            block = self.encrypt_block(xor_bytes(plaintext_block, previous))
-            blocks.append(block)
-            previous = block
-
-        return b''.join(blocks)
-
-    def decrypt_cbc(self, ciphertext, iv):
-        """
-        Decrypts `ciphertext` using CBC mode and PKCS#7 padding, with the given
-        initialization vector (iv).
-        """
-        assert len(iv) == 16
-
-        blocks = []
-        previous = iv
-        for ciphertext_block in split_blocks(ciphertext):
-            # CBC mode decrypt: previous XOR decrypt(ciphertext)
-            blocks.append(xor_bytes(previous, self.decrypt_block(ciphertext_block)))
-            previous = ciphertext_block
-
-        return unpad(b''.join(blocks))
-
-    def encrypt_pcbc(self, plaintext, iv):
-        """
-        Encrypts `plaintext` using PCBC mode and PKCS#7 padding, with the given
-        initialization vector (iv).
-        """
-        assert len(iv) == 16
-
-        plaintext = pad(plaintext)
-
-        blocks = []
-        prev_ciphertext = iv
-        prev_plaintext = bytes(16)
-        for plaintext_block in split_blocks(plaintext):
-            # PCBC mode encrypt: encrypt(plaintext_block XOR (prev_ciphertext XOR prev_plaintext))
-            ciphertext_block = self.encrypt_block(xor_bytes(plaintext_block, xor_bytes(prev_ciphertext, prev_plaintext)))
-            blocks.append(ciphertext_block)
-            prev_ciphertext = ciphertext_block
-            prev_plaintext = plaintext_block
-
-        return b''.join(blocks)
-
-    def decrypt_pcbc(self, ciphertext, iv):
-        """
-        Decrypts `ciphertext` using PCBC mode and PKCS#7 padding, with the given
-        initialization vector (iv).
-        """
-        assert len(iv) == 16
-
-        blocks = []
-        prev_ciphertext = iv
-        prev_plaintext = bytes(16)
-        for ciphertext_block in split_blocks(ciphertext):
-            # PCBC mode decrypt: (prev_plaintext XOR prev_ciphertext) XOR decrypt(ciphertext_block)
-            plaintext_block = xor_bytes(xor_bytes(prev_ciphertext, prev_plaintext), self.decrypt_block(ciphertext_block))
-            blocks.append(plaintext_block)
-            prev_ciphertext = ciphertext_block
-            prev_plaintext = plaintext_block
-
-        return unpad(b''.join(blocks))
-
-    def encrypt_cfb(self, plaintext, iv):
-        """
-        Encrypts `plaintext` with the given initialization vector (iv).
-        """
-        assert len(iv) == 16
-
-        blocks = []
-        prev_ciphertext = iv
-        for plaintext_block in split_blocks(plaintext, require_padding=False):
-            # CFB mode encrypt: plaintext_block XOR encrypt(prev_ciphertext)
-            ciphertext_block = xor_bytes(plaintext_block, self.encrypt_block(prev_ciphertext))
-            blocks.append(ciphertext_block)
-            prev_ciphertext = ciphertext_block
-
-        return b''.join(blocks)
-
-    def decrypt_cfb(self, ciphertext, iv):
-        """
-        Decrypts `ciphertext` with the given initialization vector (iv).
-        """
-        assert len(iv) == 16
-
-        blocks = []
-        prev_ciphertext = iv
-        for ciphertext_block in split_blocks(ciphertext, require_padding=False):
-            # CFB mode decrypt: ciphertext XOR decrypt(prev_ciphertext)
-            plaintext_block = xor_bytes(ciphertext_block, self.encrypt_block(prev_ciphertext))
-            blocks.append(plaintext_block)
-            prev_ciphertext = ciphertext_block
-
-        return b''.join(blocks)
-
-    def encrypt_ofb(self, plaintext, iv):
-        """
-        Encrypts `plaintext` using OFB mode initialization vector (iv).
-        """
-        assert len(iv) == 16
-
-        blocks = []
-        previous = iv
-        for plaintext_block in split_blocks(plaintext, require_padding=False):
-            # OFB mode encrypt: plaintext_block XOR encrypt(previous)
-            block = self.encrypt_block(previous)
-            ciphertext_block = xor_bytes(plaintext_block, block)
-            blocks.append(ciphertext_block)
-            previous = block
-
-        return b''.join(blocks)
-
-    def decrypt_ofb(self, ciphertext, iv):
-        """
-        Decrypts `ciphertext` using OFB mode initialization vector (iv).
-        """
-        assert len(iv) == 16
-
-        blocks = []
-        previous = iv
-        for ciphertext_block in split_blocks(ciphertext, require_padding=False):
-            # OFB mode decrypt: ciphertext XOR encrypt(previous)
-            block = self.encrypt_block(previous)
-            plaintext_block = xor_bytes(ciphertext_block, block)
-            blocks.append(plaintext_block)
-            previous = block
-
-        return b''.join(blocks)
-
-    def encrypt_ctr(self, plaintext, iv):
-        """
-        Encrypts `plaintext` using CTR mode with the given nounce/IV.
-        """
-        assert len(iv) == 16
-
-        blocks = []
-        nonce = iv
-        for plaintext_block in split_blocks(plaintext, require_padding=False):
-            # CTR mode encrypt: plaintext_block XOR encrypt(nonce)
-            block = xor_bytes(plaintext_block, self.encrypt_block(nonce))
-            blocks.append(block)
-            nonce = inc_bytes(nonce)
-
-        return b''.join(blocks)
-
-    def decrypt_ctr(self, ciphertext, iv):
-        """
-        Decrypts `ciphertext` using CTR mode with the given nounce/IV.
-        """
-        assert len(iv) == 16
-
-        blocks = []
-        nonce = iv
-        for ciphertext_block in split_blocks(ciphertext, require_padding=False):
-            # CTR mode decrypt: ciphertext XOR encrypt(nonce)
-            block = xor_bytes(ciphertext_block, self.encrypt_block(nonce))
-            blocks.append(block)
-            nonce = inc_bytes(nonce)
-
-        return b''.join(blocks)
-
-
-import os
-from hashlib import pbkdf2_hmac
-from hmac import new as new_hmac, compare_digest
-
-AES_KEY_SIZE = 16
-HMAC_KEY_SIZE = 16
-IV_SIZE = 16
-
-SALT_SIZE = 16
-HMAC_SIZE = 32
-
-def get_key_iv(password, salt, workload=100000):
-    """
-    Stretches the password and extracts an AES key, an HMAC key and an AES
-    initialization vector.
-    """
-    stretched = pbkdf2_hmac('sha256', password, salt, workload, AES_KEY_SIZE + IV_SIZE + HMAC_KEY_SIZE)
-    aes_key, stretched = stretched[:AES_KEY_SIZE], stretched[AES_KEY_SIZE:]
-    hmac_key, stretched = stretched[:HMAC_KEY_SIZE], stretched[HMAC_KEY_SIZE:]
-    iv = stretched[:IV_SIZE]
-    return aes_key, hmac_key, iv
-
-
-def encrypt(key, plaintext, workload=100000):
-    """
-    Encrypts `plaintext` with `key` using AES-128, an HMAC to verify integrity,
-    and PBKDF2 to stretch the given key.
-
-    The exact algorithm is specified in the module docstring.
-    """
-    if isinstance(key, str):
-        key = key.encode('utf-8')
-    if isinstance(plaintext, str):
-        plaintext = plaintext.encode('utf-8')
-
-    salt = os.urandom(SALT_SIZE)
-    key, hmac_key, iv = get_key_iv(key, salt, workload)
-    ciphertext = AES(key).encrypt_cbc(plaintext, iv)
-    hmac = new_hmac(hmac_key, salt + ciphertext, 'sha256').digest()
-    assert len(hmac) == HMAC_SIZE
-
-    return hmac + salt + ciphertext
-
-
-def decrypt(key, ciphertext, workload=100000):
-    """
-    Decrypts `ciphertext` with `key` using AES-128, an HMAC to verify integrity,
-    and PBKDF2 to stretch the given key.
-
-    The exact algorithm is specified in the module docstring.
-    """
-
-    assert len(ciphertext) % 16 == 0, "Ciphertext must be made of full 16-byte blocks."
-
-    assert len(ciphertext) >= 32, """
-    Ciphertext must be at least 32 bytes long (16 byte salt + 16 byte block). To
-    encrypt or decrypt single blocks use `AES(key).decrypt_block(ciphertext)`.
-    """
-
-    if isinstance(key, str):
-        key = key.encode('utf-8')
-
-    hmac, ciphertext = ciphertext[:HMAC_SIZE], ciphertext[HMAC_SIZE:]
-    salt, ciphertext = ciphertext[:SALT_SIZE], ciphertext[SALT_SIZE:]
-    key, hmac_key, iv = get_key_iv(key, salt, workload)
-
-    expected_hmac = new_hmac(hmac_key, salt + ciphertext, 'sha256').digest()
-    assert compare_digest(hmac, expected_hmac), 'Ciphertext corrupted or tampered.'
-
-    return AES(key).decrypt_cbc(ciphertext, iv)
-
-
-def benchmark():
-    key = b'P' * 16
-    message = b'M' * 16
-    aes = AES(key)
-    for i in range(30000):
-        aes.encrypt_block(message)
-
-__all__ = ["encrypt", "decrypt", "AES"]
-
-if __name__ == '__main__':
-    import sys
-    write = lambda b: sys.stdout.buffer.write(b)
-    read = lambda: sys.stdin.buffer.read()
-
-    if len(sys.argv) < 2:
-        print('Usage: ./aes.py encrypt "key" "message"')
-        print('Running tests...')
-        from tests import *
-        run()
-    elif len(sys.argv) == 2 and sys.argv[1] == 'benchmark':
-        benchmark()
-        exit()
-    elif len(sys.argv) == 3:
-        text = read()
-    elif len(sys.argv) > 3:
-        text = ' '.join(sys.argv[2:])
-
-    if 'encrypt'.startswith(sys.argv[1]):
-        write(encrypt(sys.argv[2], text))
-    elif 'decrypt'.startswith(sys.argv[1]):
-        write(decrypt(sys.argv[2], text))
-    else:
-        print('Expected command "encrypt" or "decrypt" in first argument.')
-
-    # encrypt('my secret key', b'0' * 1000000) # 1 MB encrypted in 20 seconds.
+            print("ERROR. Result does not match expected.")
+            print("Expected:")
+            self.print_block(expected)
+            print("Got:")
+            self.print_block(result)
+            print("")
+            return 1
+
+
+    #-------------------------------------------------------------------
+    # print_bytekeys()
+    #
+    # Print a set of round keys given as an array of bytes.
+    #-------------------------------------------------------------------
+    def print_bytekeys(self, keys):
+        i = 0
+        print("Number of round keys: %d" % (int(len(keys) / 16)))
+        while i < (len(keys) - 1):
+            for j in range(16):
+                print("0x%02x " % keys[i + j], end="")
+            print("")
+            i += 16
+
+    #-------------------------------------------------------------------
+    # print_block()
+    #
+    # Print the given block as four 32 bit words.
+    #-------------------------------------------------------------------
+    def print_block(self, block):
+        (w0, w1, w2, w3) = block
+        print("0x%08x, 0x%08x, 0x%08x, 0x%08x" % (w0, w1, w2, w3))
+
+
+    #-------------------------------------------------------------------
+    # print_key()
+    #
+    # Print the given key as on or two sets of four 32 bit words.
+    #-------------------------------------------------------------------
+    def print_key(self, key):
+        if len(key) == 8:
+            (k0, k1, k2, k3, k4, k5, k6, k7) = key
+            self.print_block((k0, k1, k2, k3))
+            self.print_block((k4, k5, k6, k7))
+        else:
+            self.print_block(key)
+
+
+    #-------------------------------------------------------------------
+    # b2w()
+    #
+    # Create a word from the given bytes.
+    #-------------------------------------------------------------------
+    def b2w(self, b0, b1, b2, b3):
+        return (b0 << 24) + (b1 << 16) + (b2 << 8) + b3
+
+
+    #-------------------------------------------------------------------
+    # w2b()
+    #
+    # Extracts the bytes in a word.
+    #-------------------------------------------------------------------
+    def w2b(self, w):
+        b0 = w >> 24
+        b1 = w >> 16 & 0xff
+        b2 = w >> 8 & 0xff
+        b3 = w & 0xff
+        return (b0, b1, b2, b3)
+
+
+    #-------------------------------------------------------------------
+    # gm2()
+    #
+    # The specific Galois Multiplication by two for a given byte.
+    #-------------------------------------------------------------------
+    def gm2(self, b):
+        return ((b << 1) ^ (0x1b & ((b >> 7) * 0xff))) & 0xff
+
+
+    #-------------------------------------------------------------------
+    # gm3()
+    #
+    # The specific Galois Multiplication by three for a given byte.
+    #-------------------------------------------------------------------
+    def gm3(self, b):
+        return self.gm2(b) ^ b
+
+
+    #-------------------------------------------------------------------
+    # gm4()
+    #
+    # The specific Galois Multiplication by four for a given byte.
+    #-------------------------------------------------------------------
+    def gm4(self, b):
+        return self.gm2(self.gm2(b))
+
+
+    #-------------------------------------------------------------------
+    # gm8()
+    #
+    # The specific Galois Multiplication by eight for a given byte.
+    #-------------------------------------------------------------------
+    def gm8(self, b):
+        return self.gm2(self.gm4(b))
+
+
+    #-------------------------------------------------------------------
+    # gm09()
+    #
+    # The specific Galois Multiplication by nine for a given byte.
+    #-------------------------------------------------------------------
+    def gm09(self, b):
+        return self.gm8(b) ^ b
+
+
+    #-------------------------------------------------------------------
+    # gm11()
+    #
+    # The specific Galois Multiplication by 11 for a given byte.
+    #-------------------------------------------------------------------
+    def gm11(self, b):
+        return self.gm8(b) ^ self.gm2(b) ^ b
+
+
+    #-------------------------------------------------------------------
+    # gm13()
+    #
+    # The specific Galois Multiplication by 13 for a given byte.
+    #-------------------------------------------------------------------
+    def gm13(self, b):
+        return self.gm8(b) ^ self.gm4(b) ^ b
+
+
+    #-------------------------------------------------------------------
+    # gm14()
+    #
+    # The specific Galois Multiplication by 14 for a given byte.
+    #-------------------------------------------------------------------
+    def gm14(self, b):
+        return self.gm8(b) ^ self.gm4(b) ^ self.gm2(b)
+
+
+    #-------------------------------------------------------------------
+    # substw()
+    #
+    # Returns a 32-bit word in which each of the bytes in the
+    # given 32-bit word has been used as lookup into the AES S-box.
+    #-------------------------------------------------------------------
+    def substw(self, w):
+        (b0, b1, b2, b3) = self.w2b(w)
+        s0 = self.sbox[b0]
+        s1 = self.sbox[b1]
+        s2 = self.sbox[b2]
+        s3 = self.sbox[b3]
+        res = self.b2w(s0, s1, s2, s3)
+
+        if (self.VERBOSE):
+            print("Inside substw:")
+            print("b0 = 0x%02x, b1 = 0x%02x, b2 = 0x%02x, b3 = 0x%02x" %
+                  (b0, b1, b2, b3))
+            print("s0 = 0x%02x, s1 = 0x%02x, s2 = 0x%02x, s3 = 0x%02x" %
+                  (s0, s1, s2, s3))
+            print("res = 0x%08x" % (res))
+        return res
+
+
+    #-------------------------------------------------------------------
+    # inv_substw()
+    #
+    # Returns a 32-bit word in which each of the bytes in the
+    # given 32-bit word has been used as lookup into
+    # the inverse AES S-box.
+    #-------------------------------------------------------------------
+    def inv_substw(self, w):
+        (b0, b1, b2, b3) = self.w2b(w)
+        s0 = self.inv_sbox[b0]
+        s1 = self.inv_sbox[b1]
+        s2 = self.inv_sbox[b2]
+        s3 = self.inv_sbox[b3]
+        res = self.b2w(s0, s1, s2, s3)
+
+        if (self.VERBOSE):
+            print("Inside inv_substw:")
+            print("b0 = 0x%02x, b1 = 0x%02x, b2 = 0x%02x, b3 = 0x%02x" %
+                (b0, b1, b2, b3))
+            print("s0 = 0x%02x, s1 = 0x%02x, s2 = 0x%02x, s3 = 0x%02x" %
+                (s0, s1, s2, s3))
+            print("res = 0x%08x" % (res))
+        return res
+
+
+    #-------------------------------------------------------------------
+    # rolx()
+    #
+    # Rotate the given 32 bit word x bits left.
+    #-------------------------------------------------------------------
+    def rolx(self, w, x):
+        return ((w << x) | (w >> (32 - x))) & 0xffffffff
+
+
+    #-------------------------------------------------------------------
+    # next_128bit_key()
+    #
+    # Generate the next four key words for aes-128 based on given
+    # rcon and previous key words.
+    #-------------------------------------------------------------------
+    def next_128bit_key(self, prev_key, rcon):
+        (w0, w1, w2, w3) = prev_key
+
+        rol = self.rolx(w3, 8)
+        subst = self.substw(rol)
+        t = subst ^ (rcon << 24)
+
+        k0 = w0 ^ t
+        k1 = w1 ^ w0 ^ t
+        k2 = w2 ^ w1 ^ w0 ^ t
+        k3 = w3 ^ w2 ^ w1 ^ w0 ^ t
+
+        if (self.VERBOSE):
+            print("Inside next 128bit key:")
+            print("w0 = 0x%08x, w1 = 0x%08x, w2 = 0x%08x, w3 = 0x%08x" %
+                  (w0, w1, w2, w3))
+            print("rol = 0x%08x, subst = 0x%08x, rcon = 0x%02x, t = 0x%08x" %
+                  (rol, subst, rcon, t))
+            print("k0 = 0x%08x, k1 = 0x%08x, k2 = 0x%08x, k3 = 0x%08x" %
+                  (k0, k1, k2, k3))
+        return (k0, k1, k2, k3)
+
+
+    #-------------------------------------------------------------------
+    # key_gen128()
+    #
+    # Generating the keys for 128 bit keys.
+    #-------------------------------------------------------------------
+    def key_gen128(self, key):
+        print("Doing the 128 bit key expansion")
+
+        round_keys = []
+        round_keys.append(key)
+
+        for i in range(10):
+            round_keys.append(self.next_128bit_key(round_keys[i], self.get_rcon(i + 1)))
+
+        if (self.VERBOSE):
+            print("Input key:")
+            self.print_block(key)
+            print("")
+
+            print("Generated keys:")
+            for k in round_keys:
+                self.print_block(k)
+            print("")
+
+        return round_keys
+
+
+    #-------------------------------------------------------------------
+    # next_256bit_key_a()
+    #
+    # Generate the next four key words for aes-256 using algorithm A
+    # based on given rcon and the previous two keys.
+    #-------------------------------------------------------------------
+    def next_256it_key_a(self, key0, key1, rcon):
+        (w0, w1, w2, w3) = key0
+        (w4, w5, w6, w7) = key1
+
+        sw = self.substw(self.rolx(w7, 8))
+        rw = (rcon << 24)
+        t = sw ^ rw
+
+        k0 = w0 ^ t
+        k1 = w1 ^ w0 ^ t
+        k2 = w2 ^ w1 ^ w0 ^ t
+        k3 = w3 ^ w2 ^ w1 ^ w0 ^ t
+
+        if (self.DUMP_VARS):
+            print("next_256bit_key_a:")
+            print("w0 = 0x%08x, w0 = 0x%08x, w0 = 0x%08x, w0 = 0x%08x" % (w0, w1, w2, w3))
+            print("w4 = 0x%08x, w5 = 0x%08x, w6 = 0x%08x, w7 = 0x%08x" % (w4, w5, w6, w7))
+            print("t = 0x%08x, sw = 0x%08x, rw = 0x%08x" % (t, sw, rw))
+            print("k0 = 0x%08x, k0 = 0x%08x, k0 = 0x%08x, k0 = 0x%08x" % (k0, k1, k2, k3))
+            print("")
+
+        return (k0, k1, k2, k3)
+
+
+    #-------------------------------------------------------------------
+    # next_256bit_key_b()
+    #
+    # Generate the next four key words for aes-256 using algorithm B
+    # based on given previous eight keywords.
+    #-------------------------------------------------------------------
+    def next_256it_key_b(self, key0, key1):
+        (w0, w1, w2, w3) = key0
+        (w4, w5, w6, w7) = key1
+
+        t = self.substw(w7)
+
+        k0 = w0 ^ t
+        k1 = w1 ^ w0 ^ t
+        k2 = w2 ^ w1 ^ w0 ^ t
+        k3 = w3 ^ w2 ^ w1 ^ w0 ^ t
+
+        if (self.DUMP_VARS):
+            print("next_256bit_key_b:")
+            print("w0 = 0x%08x, w0 = 0x%08x, w0 = 0x%08x, w0 = 0x%08x" % (w0, w1, w2, w3))
+            print("w4 = 0x%08x, w5 = 0x%08x, w6 = 0x%08x, w7 = 0x%08x" % (w4, w5, w6, w7))
+            print("t = 0x%08x" % (t))
+            print("k0 = 0x%08x, k0 = 0x%08x, k0 = 0x%08x, k0 = 0x%08x" % (k0, k1, k2, k3))
+            print("")
+
+        return (k0, k1, k2, k3)
+
+
+    #-------------------------------------------------------------------
+    # key_gen256()
+    #
+    # Generating the keys for 256 bit keys.
+    #-------------------------------------------------------------------
+    def key_gen256(self, key):
+        round_keys = []
+        (k0, k1, k2, k3, k4, k5, k6, k7) = key
+
+        round_keys.append((k0, k1, k2, k3))
+        round_keys.append((k4, k5, k6, k7))
+
+        j = 1
+        for i in range(0, (self.AES_256_ROUNDS - 2), 2):
+            k = self.next_256it_key_a(round_keys[i], round_keys[i + 1], self.get_rcon(j))
+            round_keys.append(k)
+            k = self.next_256it_key_b(round_keys[i + 1], round_keys[i + 2])
+            round_keys.append(k)
+            j += 1
+
+        # One final key needs to be generated.
+        k = self.next_256it_key_a(round_keys[12], round_keys[13], self.get_rcon(7))
+        round_keys.append(k)
+
+        if (self.VERBOSE):
+            print("Input key:")
+            self.print_block((k0, k1, k2, k3))
+            self.print_block((k4, k5, k6, k7))
+            print("")
+
+            print("Generated keys:")
+            for k in round_keys:
+                self.print_block(k)
+            print("")
+
+        return round_keys
+
+
+    #-------------------------------------------------------------------
+    # get_rcon()
+    #
+    # Function implementation of rcon. Calculates rcon for a
+    # given round. This could be implemented as an iterator.
+    #-------------------------------------------------------------------
+    def get_rcon(self, round):
+        rcon = 0x8d
+
+        for i in range(0, round):
+            rcon = ((rcon << 1) ^ (0x11b & - (rcon >> 7))) & 0xff
+
+        return rcon
+
+
+    #-------------------------------------------------------------------
+    # addroundkey()
+    #
+    # AES AddRoundKey block operation.
+    # Perform XOR combination of the given block and the given key.
+    #-------------------------------------------------------------------
+    def addroundkey(self, key, block):
+        (w0, w1, w2, w3) = block
+        (k0, k1, k2, k3) = key
+
+        res_block = (w0 ^ k0, w1 ^ k1, w2 ^ k2, w3 ^ k3)
+
+        if (self.VERBOSE):
+            print("AddRoundKey key, block in and block out:")
+            self.print_block(key)
+            self.print_block(block)
+            self.print_block(res_block)
+            print("")
+
+        return res_block
+
+
+    #-------------------------------------------------------------------
+    # mixw()
+    #
+    # Perform bit mixing of the given words.
+    #-------------------------------------------------------------------
+    def mixw(self, w):
+        (b0, b1, b2, b3) = self.w2b(w)
+
+        mb0 = self.gm2(b0) ^ self.gm3(b1) ^ b2           ^ b3
+        mb1 = b0           ^ self.gm2(b1) ^ self.gm3(b2) ^ b3
+        mb2 = b0           ^ b1           ^ self.gm2(b2) ^ self.gm3(b3)
+        mb3 = self.gm3(b0) ^ b1           ^ b2           ^ self.gm2(b3)
+
+        return self.b2w(mb0, mb1, mb2, mb3)
+
+
+    #-------------------------------------------------------------------
+    # mixcolumns()
+    #
+    # AES MixColumns on the given block.
+    #-------------------------------------------------------------------
+    def mixcolumns(self, block):
+        (c0, c1, c2, c3) = block
+
+        mc0 = self.mixw(c0)
+        mc1 = self.mixw(c1)
+        mc2 = self.mixw(c2)
+        mc3 = self.mixw(c3)
+
+        res_block = (mc0, mc1, mc2, mc3)
+
+        if (self.VERBOSE):
+            print("MixColumns block in and block out:")
+            self.print_block(block)
+            self.print_block(res_block)
+            print("")
+
+        return res_block
+
+
+    #-------------------------------------------------------------------
+    # subbytes()
+    #
+    # AES SubBytes operation on the given block.
+    #-------------------------------------------------------------------
+    def subbytes(self, block):
+        (w0, w1, w2, w3) = block
+
+        res_block = (self.substw(w0), self.substw(w1),
+                    self.substw(w2), self.substw(w3))
+
+        if (self.VERBOSE):
+            print("SubBytes block in and block out:")
+            self.print_block(block)
+            self.print_block(res_block)
+            print("")
+
+        return res_block
+
+
+    #-------------------------------------------------------------------
+    # shiftrows()
+    #
+    # AES ShiftRows block operation.
+    #-------------------------------------------------------------------
+    def shiftrows(self, block):
+        (w0, w1, w2, w3) = block
+
+        c0 = self.w2b(w0)
+        c1 = self.w2b(w1)
+        c2 = self.w2b(w2)
+        c3 = self.w2b(w3)
+
+        ws0 = self.b2w(c0[0], c1[1],  c2[2],  c3[3])
+        ws1 = self.b2w(c1[0], c2[1],  c3[2],  c0[3])
+        ws2 = self.b2w(c2[0], c3[1],  c0[2],  c1[3])
+        ws3 = self.b2w(c3[0], c0[1],  c1[2],  c2[3])
+
+        res_block = (ws0, ws1, ws2, ws3)
+
+        if (self.VERBOSE):
+            print("ShiftRows block in and block out:")
+            self.print_block(block)
+            self.print_block(res_block)
+            print("")
+
+        return res_block
+
+
+    #-------------------------------------------------------------------
+    # aes_encipher()
+    #
+    # Perform AES encipher operation for the given block using the
+    # given key length.
+    #-------------------------------------------------------------------
+    def aes_encipher_block(self, key, block):
+        tmp_block = block[:]
+
+        # Get round keys based on the given key.
+        if len(key) == 4:
+            round_keys = self.key_gen128(key)
+            num_rounds = self.AES_128_ROUNDS
+        else:
+            round_keys = self.key_gen256(key)
+            num_rounds = self.AES_256_ROUNDS
+
+        # Init round
+        print("  Initial AddRoundKeys round.")
+        tmp_block4 = self.addroundkey(round_keys[0], block)
+
+        # Main rounds
+        for i in range(1 , (num_rounds)):
+            print("")
+            print("  Round %02d" % i)
+            print("  ---------")
+
+            tmp_block1 = self.subbytes(tmp_block4)
+            tmp_block2 = self.shiftrows(tmp_block1)
+            tmp_block3 = self.mixcolumns(tmp_block2)
+            tmp_block4 = self.addroundkey(round_keys[i], tmp_block3)
+
+
+        # Final round
+        print("  Final round.")
+        tmp_block1 = self.subbytes(tmp_block4)
+        tmp_block2 = self.shiftrows(tmp_block1)
+        tmp_block3 = self.addroundkey(round_keys[num_rounds], tmp_block2)
+
+        return tmp_block3
+
+
+    #-------------------------------------------------------------------
+    # inv_mixw()
+    #
+    # Perform inverse bit mixing of the given words.
+    #-------------------------------------------------------------------
+    def inv_mixw(self, w):
+        (b0, b1, b2, b3) = self.w2b(w)
+
+        mb0 = self.gm14(b0) ^ self.gm11(b1) ^ self.gm13(b2) ^ self.gm09(b3)
+        mb1 = self.gm09(b0) ^ self.gm14(b1) ^ self.gm11(b2) ^ self.gm13(b3)
+        mb2 = self.gm13(b0) ^ self.gm09(b1) ^ self.gm14(b2) ^ self.gm11(b3)
+        mb3 = self.gm11(b0) ^ self.gm13(b1) ^ self.gm09(b2) ^ self.gm14(b3)
+
+        return self.b2w(mb0, mb1, mb2, mb3)
+
+
+    #-------------------------------------------------------------------
+    # inv_mixcolumns()
+    #
+    # AES Inverse MixColumns on the given block.
+    #-------------------------------------------------------------------
+    def inv_mixcolumns(self, block):
+        (c0, c1, c2, c3) = block
+
+        mc0 = self.inv_mixw(c0)
+        mc1 = self.inv_mixw(c1)
+        mc2 = self.inv_mixw(c2)
+        mc3 = self.inv_mixw(c3)
+
+        res_block = (mc0, mc1, mc2, mc3)
+
+        if (self.VERBOSE):
+            print("Inverse MixColumns block in and block out:")
+            self.print_block(block)
+            self.print_block(res_block)
+            print("")
+
+        return res_block
+
+
+    #-------------------------------------------------------------------
+    # inv_shiftrows()
+    #
+    # AES inverse ShiftRows block operation.
+    #-------------------------------------------------------------------
+    def inv_shiftrows(self, block):
+        (w0, w1, w2, w3) = block
+
+        c0 = self.w2b(w0)
+        c1 = self.w2b(w1)
+        c2 = self.w2b(w2)
+        c3 = self.w2b(w3)
+
+        ws0 = self.b2w(c0[0], c3[1],  c2[2],  c1[3])
+        ws1 = self.b2w(c1[0], c0[1],  c3[2],  c2[3])
+        ws2 = self.b2w(c2[0], c1[1],  c0[2],  c3[3])
+        ws3 = self.b2w(c3[0], c2[1],  c1[2],  c0[3])
+
+        res_block = (ws0, ws1, ws2, ws3)
+
+        if (self.VERBOSE):
+            print("Inverse ShiftRows block in and block out:")
+            self.print_block(block)
+            self.print_block(res_block)
+            print("")
+
+        return res_block
+
+
+    #-------------------------------------------------------------------
+    # inv_subbytes()
+    #
+    # AES inverse SubBytes operation on the given block.
+    #-------------------------------------------------------------------
+    def inv_subbytes(self, block):
+        (w0, w1, w2, w3) = block
+
+        res_block = (self.inv_substw(w0), self.inv_substw(w1),
+                     self.inv_substw(w2), self.inv_substw(w3))
+
+        if (self.VERBOSE):
+            print("Inverse SubBytes block in and block out:")
+            self.print_block(block)
+            self.print_block(res_block)
+            print("")
+
+        return res_block
+
+
+    #-------------------------------------------------------------------
+    # aes_decipher()
+    #
+    # Perform AES decipher operation for the given block
+    # using the given key length.
+    #-------------------------------------------------------------------
+    def aes_decipher_block(self, key, block):
+        tmp_block = block[:]
+
+        # Get round keys based on the given key.
+        if len(key) == 4:
+            round_keys = self.key_gen128(key)
+            num_rounds = self.AES_128_ROUNDS
+        else:
+            round_keys = self.key_gen256(key)
+            num_rounds = self.AES_256_ROUNDS
+
+            # Initial round
+        print("  Initial, partial round.")
+        tmp_block1 = self.addroundkey(round_keys[len(round_keys) - 1], tmp_block)
+        tmp_block2 = self.inv_shiftrows(tmp_block1)
+        tmp_block4 = self.inv_subbytes(tmp_block2)
+
+        # Main rounds
+        for i in range(1 , (num_rounds)):
+            print("")
+            print("  Round %02d" % i)
+            print("  ---------")
+
+            tmp_block1 = self.addroundkey(round_keys[(len(round_keys) - i - 1)], tmp_block4)
+            tmp_block2 = self.inv_mixcolumns(tmp_block1)
+            tmp_block3 = self.inv_shiftrows(tmp_block2)
+            tmp_block4 = self.inv_subbytes(tmp_block3)
+
+        # Final round
+        print("  Final AddRoundKeys round.")
+        res_block = self.addroundkey(round_keys[0], tmp_block4)
+
+        return res_block
+
+
+    #-------------------------------------------------------------------
+    # test_mixcolumns()
+    #
+    # Test the mixcolumns and inverse mixcolumns operations using
+    # some simple test values.
+    #-------------------------------------------------------------------
+    def test_mixcolumns(self):
+        nist_aes128_key = (0x2b7e1516, 0x28aed2a6, 0xabf71588, 0x09cf4f3c)
+
+        print("Test of mixcolumns and inverse mixcolumns:")
+        mixresult = self.mixcolumns(nist_aes128_key)
+        inv_mixresult = self.inv_mixcolumns(mixresult)
+
+        print("Test of mixw ochi inv_mixw:")
+        testw = 0xdb135345
+        expw  = 0x8e4da1bc
+        mixresult = self.mixw(testw)
+        inv_mixresult = self.inv_mixw(mixresult)
+        print("Testword:   0x%08x" % testw)
+        print("expexted:   0x%08x" % expw)
+        print("mixword:    0x%08x" % mixresult)
+        print("invmixword: 0x%08x" % inv_mixresult)
+
+
+    #-------------------------------------------------------------------
+    # single_aes_test()
+    #
+    # Perform a single AES operation and check result
+    #-------------------------------------------------------------------
+    def single_aes_test(self, title, encdec, key, block, expected):
+        print(title)
+        self.print_key(key)
+        self.print_block(block)
+
+        if encdec == "encipher":
+            result = self.aes_encipher_block(key, block)
+        else:
+            result = self.aes_decipher_block(key, block)
+        return self.check_block(result, expected)
+
+
+    #-------------------------------------------------------------------
+    # test_aes()
+    #
+    # Test the AES implementation with 128 and 256 bit keys.
+    #-------------------------------------------------------------------
+    def test_aes(self):
+        nist_aes128_key = (0x2b7e1516, 0x28aed2a6, 0xabf71588, 0x09cf4f3c)
+        nist_aes256_key = (0x603deb10, 0x15ca71be, 0x2b73aef0, 0x857d7781,
+                           0x1f352c07, 0x3b6108d7, 0x2d9810a3, 0x0914dff4)
+
+        nist_plaintext0 = (0x6bc1bee2, 0x2e409f96, 0xe93d7e11, 0x7393172a)
+        nist_plaintext1 = (0xae2d8a57, 0x1e03ac9c, 0x9eb76fac, 0x45af8e51)
+        nist_plaintext2 = (0x30c81c46, 0xa35ce411, 0xe5fbc119, 0x1a0a52ef)
+        nist_plaintext3 = (0xf69f2445, 0xdf4f9b17, 0xad2b417b, 0xe66c3710)
+
+        nist_exp128_0 = (0x3ad77bb4, 0x0d7a3660, 0xa89ecaf3, 0x2466ef97)
+        nist_exp128_1 = (0xf5d3d585, 0x03b9699d, 0xe785895a, 0x96fdbaaf)
+        nist_exp128_2 = (0x43b1cd7f, 0x598ece23, 0x881b00e3, 0xed030688)
+        nist_exp128_3 = (0x7b0c785e, 0x27e8ad3f, 0x82232071, 0x04725dd4)
+
+        nist_exp256_0 = (0xf3eed1bd, 0xb5d2a03c, 0x064b5a7e, 0x3db181f8)
+        nist_exp256_1 = (0x591ccb10, 0xd410ed26, 0xdc5ba74a, 0x31362870)
+        nist_exp256_2 = (0xb6ed21b9, 0x9ca6f4f9, 0xf153e7b1, 0xbeafed1d)
+        nist_exp256_3 = (0x23304b7a, 0x39f9f3ff, 0x067d8d8f, 0x9e24ecc7)
+
+        tc_errors = 0
+        tc        = 0
+
+        if (self.VERBOSE):
+            print("   AES Encipher tests")
+            print("   ==================")
+        tc_errors += self.single_aes_test("Test 0 for AES-128.", "encipher",
+         nist_aes128_key, nist_plaintext0, nist_exp128_0)
+        tc += 1
+
+        tc_errors += self.single_aes_test("Test 1 for AES-128.", "encipher",
+         nist_aes128_key, nist_plaintext1, nist_exp128_1)
+        tc += 1
+
+        tc_errors += self.single_aes_test("Test 2 for AES-128.", "encipher",
+         nist_aes128_key, nist_plaintext2, nist_exp128_2)
+        tc += 1
+
+        tc_errors += self.single_aes_test("Test 3 for AES-128.", "encipher",
+         nist_aes128_key, nist_plaintext3, nist_exp128_3)
+        tc += 1
+
+        tc_errors += self.single_aes_test("Test 0 for AES-256.", "encipher",
+         nist_aes256_key, nist_plaintext0, nist_exp256_0)
+        tc += 1
+
+        tc_errors += self.single_aes_test("Test 1 for AES-256.", "encipher",
+         nist_aes256_key, nist_plaintext1, nist_exp256_1)
+        tc += 1
+
+        tc_errors += self.single_aes_test("Test 2 for AES-256.", "encipher",
+         nist_aes256_key, nist_plaintext2, nist_exp256_2)
+        tc += 1
+
+        tc_errors += self.single_aes_test("Test 3 for AES-256.", "encipher",
+         nist_aes256_key, nist_plaintext3, nist_exp256_3)
+        tc += 1
+
+
+        print("")
+        print("   AES Decipher tests")
+        print("   ==================")
+        tc_errors += self.single_aes_test("Test 0 for AES-128.", "decipher",
+         nist_aes128_key, nist_exp128_0, nist_plaintext0)
+        tc += 1
+
+        tc_errors += self.single_aes_test("Test 1 for AES-128.", "decipher",
+         nist_aes128_key, nist_exp128_1, nist_plaintext1)
+        tc += 1
+
+        tc_errors += self.single_aes_test("Test 2 for AES-128.", "decipher",
+         nist_aes128_key, nist_exp128_2, nist_plaintext2)
+        tc += 1
+
+        tc_errors += self.single_aes_test("Test 3 for AES-128.", "decipher",
+         nist_aes128_key, nist_exp128_3, nist_plaintext3)
+        tc += 1
+
+        tc_errors += self.single_aes_test("Test 0 for AES-256.", "decipher",
+         nist_aes256_key, nist_exp256_0, nist_plaintext0)
+        tc += 1
+
+        tc_errors += self.single_aes_test("Test 1 for AES-256.", "decipher",
+         nist_aes256_key, nist_exp256_1, nist_plaintext1)
+        tc += 1
+
+        tc_errors += self.single_aes_test("Test 2 for AES-256.", "decipher",
+         nist_aes256_key, nist_exp256_2, nist_plaintext2)
+        tc += 1
+
+        tc_errors += self.single_aes_test("Test 3 for AES-256.", "decipher",
+         nist_aes256_key, nist_exp256_3, nist_plaintext3)
+        tc += 1
+
+        print("Number of test cases executed: %d" % tc)
+        if (tc_errors == 0):
+            print("All test cases OK.")
+        else:
+            print("Number of failing test cases: %d" % tc_errors)
+
+
+#-------------------------------------------------------------------
+# __name__
+# Python thingy which allows the file to be run standalone as
+# well as parsed from within a Python interpreter.
+#-------------------------------------------------------------------
+if __name__=="__main__":
+    print("Testing the AES cipher model")
+    print("============================")
+    print
+    my_aes = AES()
+    my_aes.test_aes()
+    sys.exit(0)
+
+
+#=======================================================================
+# EOF aes.py
+#=======================================================================
