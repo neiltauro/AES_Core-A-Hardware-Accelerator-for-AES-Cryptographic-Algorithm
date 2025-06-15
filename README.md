@@ -47,7 +47,7 @@
 
 ### 3. **Synthesis and Physical Design with OpenLane**
 - Synthesized the `aes_core` module using [OpenLane](https://github.com/The-OpenROAD-Project/OpenLane) (an open-source RTL-to-GDS toolchain).
-- All 78 stages completed successfully, producing a final `aes_core.gds` layout ([GDSII Layout](https://github.com/neiltauro/AES_Core-A-Hardware-Accelerator-for-AES-Cryptographic-Algorithm/blob/main/GSDII.png)).
+- All 74 stages completed successfully, producing a final `aes_core.gds` layout ([GDSII Layout](https://github.com/neiltauro/AES_Core-A-Hardware-Accelerator-for-AES-Cryptographic-Algorithm/blob/main/GSDII.png)).
 - Final timing analysis showed a critical path delay of **14.7 nanoseconds**.
 
 ## Synthesis Results
