@@ -12,7 +12,7 @@
 
 ## Architectural Diagram
 
-![AES Core Architectural Diagram](https://raw.githubusercontent.com/neiltauro/AES_Core-A-Hardware-Accelerator-for-AES-Cryptographic-Algorithm/main/Photos/ArchitecturalDiagram.png)
+![AES Core Architectural Diagram](https://raw.githubusercontent.com/neiltauro/AES_Core-A-Hardware-Accelerator-for-AES-Cryptographic-Algorithm/main/Photos/ArchitecturalDiagram.jpg)
 
 > The above diagram illustrates the chiplet architecture for **AES_Core**.  
 > The main modules include:
